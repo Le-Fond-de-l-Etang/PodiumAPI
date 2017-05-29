@@ -1,0 +1,222 @@
+swagger: '2.0'
+info:
+  title: Podium API
+  description: Description of the Podium API.
+  version: "1.0.0"
+schemes:
+  - http
+produces:
+  - application/json
+paths:
+  /podium:
+    post:
+      summary: Create a podium
+      description: |
+        Create a podium and return it
+      parameters:
+        - name: podium
+          in: body
+          description: The podium to create
+          required: true
+          schema:
+            $ref: '#/definitions/PodiumCreationRequest'
+      tags:
+        - Podium
+      responses:
+        201:
+          description: The podium was created
+          schema:
+            $ref: '#/definitions/Podium'
+        400:
+          description: Bad request
+  /podium/{id}:
+    get:
+      summary: Get a podium
+      description: |
+        Return a podium with the given id and retrieve the total of points each of its item has. To compute the total of points an item has,
+        one must retrieve all votes of the podium, and then use "points = nGold * 2 + nSilver", where :
+          - nGold is the number of times the item was ordered first
+          - nSilver is the numbers of times the item was ordered second
+
+        For example, if a podium has items A, B, C, and two votes [A, B, C] and [A, C, B], then A has 4 points, and B and C have 1 each.
+      parameters:
+        - name: id
+          in: path
+          description: The id of the podium.
+          required: true
+          type: number
+          format: integer
+      tags:
+        - Podium
+      responses:
+        200:
+          description: The podium
+          schema:
+            $ref: '#/definitions/Podium'
+        404:
+          description: No podium was found with the given id
+    delete:
+      summary: Delete a podium
+      description: |
+        Delete a podium and all its votes.
+      parameters:
+        - name: id
+          in: path
+          description: The id of the podium
+          required: true
+          type: number
+          format: integer
+      responses:
+        204:
+          description: The podium was deleted
+        404:
+          description: No podium was found with the given id
+  /podium/{id}/vote:
+    post:
+      summary: Send a vote
+      description: |
+        Send a vote for the podium with the given id.
+      parameters:
+        - name: id
+          in: path
+          description: The id of the podium.
+          required: true
+          type: number
+          format: integer
+        - name: vote
+          in: body
+          description: The vote to be sent
+          required: true
+          schema:
+            $ref: '#/definitions/Vote'
+      tags:
+        - Podium
+      responses:
+        204:
+          description: The vote was taken into account
+        400:
+          description: Bad request
+        404:
+          description: No podium was found with the given id
+  /podium/trending:
+    get:
+      summary: Return the trending podiums
+      description: |
+        Return the 3 podiums with the most votes.
+      tags:
+        - Podium
+      responses:
+        200:
+          description: A list with the 3 (or less) podiums with the most votes.
+          schema:
+            $ref: '#/definitions/PodiumList'
+  /podium/search:
+    get:
+      summary: Search for podiums
+      description: |
+        Search for podiums with names matching the given string. By default, at most 10 podiums are returned; this limit can be overriden with the "limit" parameter.
+      parameters:
+        - name: search
+          in: body
+          description: The search
+          required: true
+          schema:
+            $ref: '#/definitions/Search'
+      tags:
+        - Podium
+      responses:
+        200:
+          description: A (potentially empty) list of podiums matching the search.
+          schema:
+            $ref: '#/definitions/PodiumList'
+
+definitions:
+  PodiumCreationRequest:
+    type: object
+    required:
+      - name
+    properties:
+      name:
+        type: string
+        description: The name of the podium
+      items:
+        type: array
+        items:
+          $ref: '#/definitions/PodiumItemCreationRequest'
+  PodiumItemCreationRequest:
+    type: object
+    required:
+      - name
+    properties:
+      name:
+        type: string
+        description: The name of the item
+      imageUrl:
+        type: string
+        format: url
+        description: The url of an image representing the item.
+  Podium:
+    type: object
+    properties:
+      id:
+        type: integer
+        description: Unique identifier representing a specific podium.
+      name:
+        type: string
+        description: The name of the podium
+      numberOfVotes:
+        type: number
+        format: integer
+        description: The total number of votes a podium has received
+      items:
+        type: array
+        items:
+          $ref: '#/definitions/PodiumItem'
+  PodiumItem:
+    type: object
+    properties:
+      name:
+        type: string
+        description: The name of the item
+      points:
+        type: integer
+        description: The number of points the item has.
+      imageUrl:
+        type: string
+        format: url
+        description: The url of an image representing the item.
+  PodiumList:
+    type: object
+    required:
+      - podiums
+    properties:
+      podiums:
+        type: array
+        items:
+          $ref: "#/definitions/Podium"
+        description: A list of podiums.
+  Vote:
+    type: object
+    required:
+      - order
+    properties:
+      order:
+        type: array
+        items:
+          type: integer
+        description: |
+          Required. The order the user thinks the items of the podium should be.
+          For example, if the items are A, B, C and the user thinks they should be ordered C, B, A, then order must be [2, 1, 0]. This array must have a length of 3, and contain only 0, 1 and 2, in any order.
+  Search:
+    type: object
+    required:
+      - searchTerm
+    properties:
+      searchTerm:
+        type: string
+        description: The term we search for
+      page:
+        type: integer
+        description: |
+          The results of the search must be paginated. The first page is at index 0, and all pages must contains exactly 10 results (the last can contains less).
+        default: 0
